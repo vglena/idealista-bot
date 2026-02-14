@@ -9,23 +9,29 @@ results = []
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
-    page.goto(URL)
-    page.wait_for_timeout(5000)
+    page.goto(URL, timeout=60000)
+    page.wait_for_load_state("networkidle")
 
-    links = page.query_selector_all('a.item-link')
+    # Esperar a que aparezcan listados
+    page.wait_for_selector("article", timeout=10000)
 
-    for link in links[:20]:
-        href = link.get_attribute("href")
-        if href:
-            full_link = "https://www.idealista.com" + href
-            match = re.search(r'/inmueble/(\d+)/', full_link)
-            if match:
-                results.append({
-                    "id": match.group(1),
-                    "url": full_link
-                })
+    articles = page.query_selector_all("article")
+
+    for article in articles:
+        link_element = article.query_selector("a")
+        if link_element:
+            href = link_element.get_attribute("href")
+            if href and "/inmueble/" in href:
+                full_link = "https://www.idealista.com" + href
+                match = re.search(r'/inmueble/(\d+)/', full_link)
+                if match:
+                    results.append({
+                        "id": match.group(1),
+                        "url": full_link
+                    })
 
     browser.close()
 
 with open("results.json", "w") as f:
-    json.dump(results, f)
+    json.dump(results, f, indent=2)
+
